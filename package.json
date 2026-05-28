@@ -1,0 +1,86 @@
+{
+  "name": "batradar",
+  "displayName": "BatRadar — AI Usage Monitor",
+  "description": "Monitor Claude and Codex AI usage in real-time from your status bar",
+  "version": "0.1.0",
+  "publisher": "batradar",
+  "license": "MIT",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZenithHawking/BatRadar.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "batradar.refresh",
+        "title": "BatRadar: Refresh Now"
+      },
+      {
+        "command": "batradar.showDetails",
+        "title": "BatRadar: Show Details"
+      },
+      {
+        "command": "batradar.openSettings",
+        "title": "BatRadar: Open Settings"
+      }
+    ],
+    "configuration": {
+      "title": "BatRadar",
+      "properties": {
+        "batradar.pollInterval": {
+          "type": "number",
+          "default": 30,
+          "description": "Polling interval in seconds"
+        },
+        "batradar.alertThreshold": {
+          "type": "number",
+          "default": 0.8,
+          "description": "Usage percentage to trigger warning (0-1)"
+        },
+        "batradar.criticalThreshold": {
+          "type": "number",
+          "default": 0.95,
+          "description": "Usage percentage to trigger critical alert (0-1)"
+        },
+        "batradar.enabledProviders": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "claude",
+            "codex"
+          ],
+          "description": "List of providers to monitor"
+        },
+        "batradar.notificationsEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable threshold alert notifications"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.0",
+    "typescript": "^5.3.0"
+  }
+}
