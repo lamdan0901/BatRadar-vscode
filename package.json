@@ -75,7 +75,8 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "vsce package"
+    "package": "vsce package",
+    "test": "npm run compile && node out/webview/content.test.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

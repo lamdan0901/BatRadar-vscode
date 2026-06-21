@@ -288,14 +288,13 @@ function usageRow(label, w) {
   var rem   = 1 - u;
   var color = usageColor(u);
   var remPct = Math.round(rem * 100);
-  var rst   = formatDuration(secondsUntil(w.reset_at));
-  var clock = resetClock(w.reset_at);
+  var resetText = usageResetText(label, w.reset_at);
   return '<div class="usage-row">'
     + '<div class="usage-row-header">'
     +   '<span class="usage-label">' + label + '</span>'
     +   '<div class="usage-right">'
     +     '<span class="usage-pct" style="color:' + color + '">' + remPct + '%' + (u >= 0.95 ? ' ⚠' : '') + '</span>'
-    +     '<span class="usage-reset">resets ' + rst + ' until ' + clock + '</span>'
+    +     '<span class="usage-reset">resets ' + resetText + '</span>'
     +   '</div>'
     + '</div>'
     + '<div class="progress-bar-wrap">'
@@ -326,6 +325,15 @@ function formatDuration(seconds) {
   return 'in ' + m + 'm';
 }
 
+function usageResetText(label, iso) {
+  if (label.indexOf('Weekly') === 0) {
+    return resetDateTimeLabel(iso);
+  }
+  var rst = formatDuration(secondsUntil(iso));
+  var clock = resetClock(iso);
+  return rst + ' until ' + clock;
+}
+
 function resetClock(iso) {
   if (!iso) return '—';
   var d = new Date(iso);
@@ -335,6 +343,19 @@ function resetClock(iso) {
   var h12 = hours % 12 || 12;
   var mm = mins < 10 ? '0' + mins : '' + mins;
   return h12 + ':' + mm + ' ' + ampm;
+}
+
+function resetDateTimeLabel(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var hours = d.getHours();
+  var mins = d.getMinutes();
+  var ampm = hours >= 12 ? 'PM' : 'AM';
+  var h12 = hours % 12 || 12;
+  var hh = h12 < 10 ? '0' + h12 : '' + h12;
+  var mm = mins < 10 ? '0' + mins : '' + mins;
+  return hh + ':' + mm + ampm + ' on ' + d.getDate() + ' ' + months[d.getMonth()];
 }
 
 function statusLabel(s) {
@@ -410,15 +431,14 @@ function buildUsageRow(label: string, w: import('../providers/types').UsageWindo
   const color = getUsageColor(u);
   const remPct = Math.round(rem * 100);
   const usedPct = Math.round(u * 100);
-  const resetIn = fmtResetTime(w.reset_at);
-  const clock = fmtResetClock(w.reset_at);
+  const resetText = formatUsageResetText(label, w.reset_at);
 
   return `<div class="usage-row">
     <div class="usage-row-header">
       <span class="usage-label">${label}</span>
       <div class="usage-right">
         <span class="usage-pct" style="color:${color}">${remPct}%${u >= 0.95 ? ' ⚠' : ''}</span>
-        <span class="usage-reset">resets ${resetIn} until ${clock}</span>
+        <span class="usage-reset">resets ${resetText}</span>
       </div>
     </div>
     <div class="progress-bar-wrap">
@@ -444,6 +464,15 @@ function fmtResetTime(iso: string | null): string {
   return `in ${m}m`;
 }
 
+function formatUsageResetText(label: string, iso: string | null): string {
+  if (label.startsWith('Weekly')) {
+    return fmtResetDateTime(iso);
+  }
+  const resetIn = fmtResetTime(iso);
+  const clock = fmtResetClock(iso);
+  return `${resetIn} until ${clock}`;
+}
+
 function fmtResetClock(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -453,6 +482,19 @@ function fmtResetClock(iso: string | null): string {
   const h12 = hours % 12 || 12;
   const mm = mins.toString().padStart(2, '0');
   return `${h12}:${mm} ${ampm}`;
+}
+
+function fmtResetDateTime(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const hours = d.getHours();
+  const mins = d.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const h12 = hours % 12 || 12;
+  const hh = h12.toString().padStart(2, '0');
+  const mm = mins.toString().padStart(2, '0');
+  return `${hh}:${mm}${ampm} on ${d.getDate()} ${months[d.getMonth()]}`;
 }
 
 function getStatusLabel(status: string): string {
