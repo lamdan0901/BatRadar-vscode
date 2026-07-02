@@ -71,19 +71,13 @@ export class StatusBarManager {
       const weeklyUsed = s.usage?.weekly?.utilization ?? 0;
       const sessionRem = Math.round((1 - sessionUsed) * 100);
       const weeklyRem = Math.round((1 - weeklyUsed) * 100);
-      parts.push(`${sessionRem}%/${weeklyRem}%`);
+      const iconId = s.id === 'claude' ? 'batradar-claude' : 'batradar-codex';
+      parts.push(`$(${iconId}) ${sessionRem}%/${weeklyRem}%`);
       if (sessionUsed > highestUsed) { highestUsed = sessionUsed; }
       if (weeklyUsed > highestUsed) { highestUsed = weeklyUsed; }
     }
 
-    let icon = '$(pulse)';
-    if (highestUsed >= 0.95) {
-      icon = '$(error)';
-    } else if (highestUsed >= 0.80) {
-      icon = '$(warning)';
-    }
-
-    this.item.text = `${icon} ${parts.join(' | ')}`;
+    this.item.text = parts.join(' ');
     this.item.color = this.getUsageColor(highestUsed);
     this.item.backgroundColor = this.getUsageBackground(highestUsed);
     this.item.tooltip = this.buildTooltip(states);
