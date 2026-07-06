@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { ProviderId, ProviderState } from '../providers/types';
 import { PollingEngine } from '../polling';
 import { getWebviewContent } from './content';
+import { buildFullUpdateMessage } from './stateSync';
 
 export class BatRadarPanel {
   private panel: vscode.WebviewPanel | undefined;
@@ -29,8 +29,7 @@ export class BatRadarPanel {
       },
     );
 
-    const states = this.collectStates();
-    this.panel.webview.html = getWebviewContent(states);
+    this.panel.webview.html = getWebviewContent(buildFullUpdateMessage(this.polling).states);
 
     this.panel.webview.onDidReceiveMessage(
       (msg: { type: string }) => {
@@ -51,31 +50,17 @@ export class BatRadarPanel {
       this.disposables,
     );
 
-    this.polling.onUsageUpdate((e) => {
-      this.postMessage({
-        type: 'usage-update',
-        provider: e.provider,
-        data: e.data,
-      });
+    this.polling.onUsageUpdate((_e) => {
+      this.sendFullUpdate();
     }, this.disposables);
 
-    this.polling.onProviderStatusChanged((e) => {
-      this.postMessage({
-        type: 'provider-status-changed',
-        provider: e.provider,
-        status: e.status,
-      });
+    this.polling.onProviderStatusChanged((_e) => {
+      this.sendFullUpdate();
     }, this.disposables);
   }
 
   private sendFullUpdate(): void {
-    const states = this.collectStates();
-    this.postMessage({ type: 'full-update', states });
-  }
-
-  private collectStates(): ProviderState[] {
-    const providers: ProviderId[] = ['claude', 'codex'];
-    return providers.map((id) => this.polling.getProviderState(id));
+    this.postMessage(buildFullUpdateMessage(this.polling));
   }
 
   private postMessage(message: unknown): void {
