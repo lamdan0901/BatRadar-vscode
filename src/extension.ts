@@ -19,12 +19,8 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   polling.onProviderStatusChanged((e: ProviderStatusEvent) => {
-    if (['disconnected', 'disabled', 'expired', 'error'].includes(e.status)) {
-      statusBar.removeProvider(e.provider);
-    } else {
-      const state = polling.getProviderState(e.provider);
-      statusBar.updateSingle(state);
-    }
+    const state = polling.getProviderState(e.provider);
+    statusBar.updateSingle(state);
   });
 
   context.subscriptions.push(onConfigChanged((newConfig) => {
@@ -35,13 +31,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('batradar.refresh', () => {
-      polling.poll();
+      void polling.poll();
     }),
     vscode.commands.registerCommand('batradar.showDetails', () => {
       panel.show();
     }),
     vscode.commands.registerCommand('batradar.openSettings', () => {
-      vscode.commands.executeCommand('workbench.action.openSettings', 'batradar');
+      void vscode.commands.executeCommand('workbench.action.openSettings', 'batradar');
     })
   );
 
