@@ -2,7 +2,7 @@
   "name": "batradar",
   "displayName": "BatRadar — AI Usage Monitor",
   "description": "Monitor Claude and Codex AI usage in real-time from your status bar",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "publisher": "batradar",
   "license": "MIT",
   "icon": "icon.png",

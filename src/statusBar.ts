@@ -1,22 +1,43 @@
 import * as vscode from 'vscode';
 import { ProviderId, ProviderState, ProviderStatus } from './providers/types';
-import { getStatusBarPhase, getZeroConnectedPresentation, shouldShowStatusBarUsageDetails } from './statusBarSummary';
+import {
+  StatusBarUsageTone,
+  getConnectedStatusBarPresentations,
+  getStatusBarPhase,
+  getZeroConnectedPresentation,
+  shouldShowStatusBarUsageDetails,
+} from './statusBarSummary';
+
+const PROVIDER_ORDER: ProviderId[] = ['claude', 'codex'];
 
 export class StatusBarManager {
-  private item: vscode.StatusBarItem;
+  private summaryItem: vscode.StatusBarItem;
+  private providerItems: Map<ProviderId, vscode.StatusBarItem> = new Map();
   private providerStates: Map<ProviderId, ProviderState> = new Map();
   private loading = true;
   private alertThreshold = 0.8;
   private criticalThreshold = 0.95;
 
   constructor() {
-    this.item = vscode.window.createStatusBarItem(
+    this.summaryItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
       100
     );
-    this.item.command = 'batradar.showDetails';
+    this.summaryItem.command = 'batradar.showDetails';
+
+    for (const id of PROVIDER_ORDER) {
+      const item = vscode.window.createStatusBarItem(
+        `batradar.${id}`,
+        vscode.StatusBarAlignment.Right,
+        100
+      );
+      item.name = id === 'claude' ? 'BatRadar Claude' : 'BatRadar Codex';
+      item.command = 'batradar.showDetails';
+      this.providerItems.set(id, item);
+    }
+
     this.showLoading();
-    this.item.show();
+    this.summaryItem.show();
   }
 
   setThresholds(alert: number, critical: number): void {
@@ -48,55 +69,79 @@ export class StatusBarManager {
     const phase = getStatusBarPhase(states, this.loading);
 
     if (phase === 'loading') {
+      this.hideProviderItems();
       this.showLoading();
       return;
     }
 
-    const connected = states.filter(s => s.status === 'connected' && s.usage);
-
     if (phase === 'zero-connected') {
+      this.hideProviderItems();
       this.showZeroConnected(states);
       return;
     }
 
-    const parts: string[] = [];
-    let highestUsed = 0;
-
-    for (const s of connected) {
-      const sessionUsed = s.usage?.session?.utilization ?? 0;
-      const weeklyUsed = s.usage?.weekly?.utilization ?? 0;
-      const sessionRem = Math.round((1 - sessionUsed) * 100);
-      const weeklyRem = Math.round((1 - weeklyUsed) * 100);
-      const iconId = s.id === 'claude' ? 'batradar-claude' : 'batradar-codex';
-      parts.push(`$(${iconId}) ${sessionRem}%/${weeklyRem}%`);
-      if (sessionUsed > highestUsed) { highestUsed = sessionUsed; }
-      if (weeklyUsed > highestUsed) { highestUsed = weeklyUsed; }
-    }
-
-    this.item.text = parts.join(' ');
-    this.item.color = this.getUsageColor(highestUsed);
-    this.item.backgroundColor = this.getUsageBackground(highestUsed);
-    this.item.tooltip = this.buildTooltip(states);
+    this.showConnected(states);
   }
 
-  private getUsageColor(util: number): vscode.ThemeColor | undefined {
-    if (util >= 0.95) {
+  private showConnected(states: ProviderState[]): void {
+    const presentations = getConnectedStatusBarPresentations(
+      states,
+      this.alertThreshold,
+      this.criticalThreshold
+    );
+
+    if (presentations.length === 0) {
+      this.showZeroConnected(states);
+      return;
+    }
+
+    this.summaryItem.hide();
+
+    for (const presentation of presentations) {
+      const item = this.providerItems.get(presentation.id);
+      if (!item) {
+        continue;
+      }
+
+      const providerState = this.providerStates.get(presentation.id);
+      item.text = presentation.text;
+      item.color = this.getToneColor(presentation.tone);
+      item.backgroundColor = this.getToneBackground(presentation.tone);
+      item.tooltip = this.buildTooltip(providerState ? [providerState] : states);
+      item.show();
+    }
+
+    for (const [id, item] of this.providerItems) {
+      if (!presentations.some((presentation) => presentation.id === id)) {
+        item.hide();
+      }
+    }
+  }
+
+  private getToneColor(tone: StatusBarUsageTone): vscode.ThemeColor | undefined {
+    if (tone === 'error') {
       return new vscode.ThemeColor('statusBarItem.errorForeground');
     }
-    if (util >= 0.80) {
+    if (tone === 'warning') {
       return new vscode.ThemeColor('statusBarItem.warningForeground');
     }
     return undefined;
   }
 
-  private getUsageBackground(util: number): vscode.ThemeColor | undefined {
-    if (util >= this.criticalThreshold) {
+  private getToneBackground(tone: StatusBarUsageTone): vscode.ThemeColor | undefined {
+    if (tone === 'error') {
       return new vscode.ThemeColor('statusBarItem.errorBackground');
     }
-    if (util >= this.alertThreshold) {
+    if (tone === 'warning') {
       return new vscode.ThemeColor('statusBarItem.warningBackground');
     }
     return undefined;
+  }
+
+  private hideProviderItems(): void {
+    for (const item of this.providerItems.values()) {
+      item.hide();
+    }
   }
 
   private buildTooltip(states: ProviderState[]): vscode.MarkdownString {
@@ -197,24 +242,29 @@ export class StatusBarManager {
 
   private showZeroConnected(states: ProviderState[]): void {
     const presentation = getZeroConnectedPresentation(states);
-    this.item.text = presentation.text;
-    this.item.color = new vscode.ThemeColor(
+    this.summaryItem.text = presentation.text;
+    this.summaryItem.color = new vscode.ThemeColor(
       presentation.colorTone === 'error'
         ? 'statusBarItem.errorForeground'
         : 'statusBarItem.warningForeground'
     );
-    this.item.backgroundColor = undefined;
-    this.item.tooltip = presentation.tooltip;
+    this.summaryItem.backgroundColor = undefined;
+    this.summaryItem.tooltip = presentation.tooltip;
+    this.summaryItem.show();
   }
 
   private showLoading(): void {
-    this.item.text = '$(loading~spin) BatRadar';
-    this.item.color = undefined;
-    this.item.backgroundColor = undefined;
-    this.item.tooltip = 'BatRadar — Loading...';
+    this.summaryItem.text = '$(loading~spin) BatRadar';
+    this.summaryItem.color = undefined;
+    this.summaryItem.backgroundColor = undefined;
+    this.summaryItem.tooltip = 'BatRadar — Loading...';
+    this.summaryItem.show();
   }
 
   dispose(): void {
-    this.item.dispose();
+    this.summaryItem.dispose();
+    for (const item of this.providerItems.values()) {
+      item.dispose();
+    }
   }
 }

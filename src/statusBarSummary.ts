@@ -1,6 +1,8 @@
-import { ProviderState, ProviderStatus } from './providers/types';
+import { ProviderId, ProviderState, ProviderStatus } from './providers/types';
 
 export type StatusBarPhase = 'loading' | 'zero-connected' | 'connected';
+export type StatusBarUsageTone = 'normal' | 'warning' | 'error';
+const PROVIDER_ORDER: ProviderId[] = ['claude', 'codex'];
 
 export interface ZeroConnectedPresentation {
   text: string;
@@ -8,17 +10,66 @@ export interface ZeroConnectedPresentation {
   colorTone: 'warning' | 'error';
 }
 
+export interface ConnectedStatusBarPresentation {
+  id: ProviderId;
+  text: string;
+  tone: StatusBarUsageTone;
+}
+
 export function shouldShowStatusBarUsageDetails(status: ProviderStatus): boolean {
   return status === 'connected';
 }
 
 export function getStatusBarPhase(states: ProviderState[], loading: boolean): StatusBarPhase {
+  const connected = states.filter((state) => state.status === 'connected' && state.usage);
+  if (connected.length > 0) {
+    return 'connected';
+  }
+
   if (loading) {
     return 'loading';
   }
 
-  const connected = states.filter((state) => state.status === 'connected' && state.usage);
-  return connected.length === 0 ? 'zero-connected' : 'connected';
+  return 'zero-connected';
+}
+
+function getUsageTone(utilization: number, alertThreshold: number, criticalThreshold: number): StatusBarUsageTone {
+  if (utilization >= criticalThreshold) {
+    return 'error';
+  }
+  if (utilization >= alertThreshold) {
+    return 'warning';
+  }
+  return 'normal';
+}
+
+function getProviderIconId(id: ProviderId): string {
+  return id === 'claude' ? 'batradar-claude' : 'batradar-codex';
+}
+
+export function getConnectedStatusBarPresentations(
+  states: ProviderState[],
+  alertThreshold: number,
+  criticalThreshold: number
+): ConnectedStatusBarPresentation[] {
+  return states
+    .filter((state): state is ProviderState & { usage: NonNullable<ProviderState['usage']> } => (
+      state.status === 'connected' && state.usage !== null
+    ))
+    .sort((left, right) => PROVIDER_ORDER.indexOf(left.id) - PROVIDER_ORDER.indexOf(right.id))
+    .map((state) => {
+      const sessionUsed = state.usage.session?.utilization ?? 0;
+      const weeklyUsed = state.usage.weekly?.utilization ?? 0;
+      const highestUtilization = Math.max(sessionUsed, weeklyUsed);
+      const sessionRemaining = Math.round((1 - sessionUsed) * 100);
+      const weeklyRemaining = Math.round((1 - weeklyUsed) * 100);
+
+      return {
+        id: state.id,
+        text: `$(${getProviderIconId(state.id)})${sessionRemaining}%/${weeklyRemaining}%`,
+        tone: getUsageTone(highestUtilization, alertThreshold, criticalThreshold),
+      };
+    });
 }
 
 const STATUS_PRIORITY: Record<ProviderStatus, number> = {

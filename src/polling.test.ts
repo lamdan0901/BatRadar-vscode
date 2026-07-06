@@ -50,6 +50,29 @@ async function testSuccessfulFetchBecomesConnected(): Promise<void> {
   assert.equal(state.usage?.plan_type, 'claude');
 }
 
+async function testRateLimitPreservesConnectedStatusWhenCacheExists(): Promise<void> {
+  const nowRef = { value: 1_000_000 };
+  let calls = 0;
+  const deps = createDeps(nowRef);
+  deps.fetchClaudeUsage = async () => {
+    calls += 1;
+    if (calls === 1) {
+      return {} as never;
+    }
+    throw new Error('rate_limited');
+  };
+
+  const polling = new PollingEngine(deps);
+  await polling.poll();
+  nowRef.value += 31_000;
+  await polling.poll();
+
+  const state = polling.getProviderState('claude');
+  assert.equal(state.status, 'connected');
+  assert.equal(state.usage?.plan_type, 'claude');
+  assert.equal(calls, 2);
+}
+
 async function testRateLimitAddsBackoffWithoutError(): Promise<void> {
   const nowRef = { value: 1_000_000 };
   let calls = 0;
@@ -153,7 +176,7 @@ async function testReEnablingProviderResetsStatusUntilFreshPoll(): Promise<void>
   const state = polling.getProviderState('claude');
   assert.equal(state.status, 'disconnected');
   assert.equal(state.usage?.plan_type, 'claude');
-  assert.deepEqual(statuses, ['connected', 'disabled', 'disconnected']);
+  assert.deepEqual(statuses, ['connected', 'disabled']);
 }
 
 async function testLateSubscriberDoesNotReplayDisabledStatusWhileEnabledProvidersRemain(): Promise<void> {
@@ -215,6 +238,7 @@ async function testNonAuthFailureBecomesError(): Promise<void> {
 async function main(): Promise<void> {
   await testMissingCredentialsBecomesDisconnected();
   await testSuccessfulFetchBecomesConnected();
+  await testRateLimitPreservesConnectedStatusWhenCacheExists();
   await testRateLimitAddsBackoffWithoutError();
   await testExpiredRefreshRetryCanRecover();
   await testExpiredStatusPreservesCachedUsage();

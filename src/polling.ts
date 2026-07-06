@@ -81,17 +81,18 @@ export class PollingEngine {
     for (const provider of ['claude', 'codex'] as const) {
       const wasEnabled = previousEnabledProviders.includes(provider);
       const isEnabled = this.enabledProviders.includes(provider);
-      if (wasEnabled !== isEnabled) {
-        if (isEnabled) {
-          const st = this.providerState[provider];
-          st.status = 'disconnected';
-          st.lastPollAt = 0;
-        }
-
+      if (wasEnabled && !isEnabled) {
         this._onProviderStatusChanged.fire({
           provider,
-          status: this.getProviderState(provider).status,
+          status: 'disabled',
         });
+        continue;
+      }
+
+      if (!wasEnabled && isEnabled) {
+        const st = this.providerState[provider];
+        st.status = 'disconnected';
+        st.lastPollAt = 0;
       }
     }
   }
@@ -229,7 +230,9 @@ export class PollingEngine {
         this.setStatus('claude', 'expired');
       } else if (msg === 'rate_limited') {
         st.extraDelay = Math.min((st.extraDelay || 30) * 2, MAX_EXTRA_DELAY_S);
-        this.setStatus('claude', 'disconnected');
+        if (st.cache === null) {
+          this.setStatus('claude', 'disconnected');
+        }
       } else {
         this.setStatus('claude', 'error');
       }
@@ -269,7 +272,9 @@ export class PollingEngine {
         this.setStatus('codex', 'expired');
       } else if (msg === 'rate_limited') {
         st.extraDelay = Math.min((st.extraDelay || 30) * 2, MAX_EXTRA_DELAY_S);
-        this.setStatus('codex', 'disconnected');
+        if (st.cache === null) {
+          this.setStatus('codex', 'disconnected');
+        }
       } else {
         this.setStatus('codex', 'error');
       }

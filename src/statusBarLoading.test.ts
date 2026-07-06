@@ -41,19 +41,29 @@ function testReconcilePreservesResolvedProvidersAcrossUnrelatedConfigChanges(): 
   assert.equal(tracker.isLoading(), false);
 }
 
-function testLoadingPhaseWinsWhileConnectedProviderExistsButAnotherIsPending(): void {
+function testConnectedPhaseWinsWhileAnotherEnabledProviderIsPending(): void {
   const phase = getStatusBarPhase([
-    state('claude', 'connected'),
+    {
+      id: 'claude',
+      status: 'connected',
+      usage: {
+        session: { utilization: 0.1, reset_at: '2099-06-25T09:20:00' },
+        weekly: { utilization: 0.15, reset_at: '2099-06-28T09:20:00' },
+        weekly_sonnet: null,
+        weekly_opus: null,
+        last_updated: '2099-06-20T10:00:00',
+      },
+    },
     state('codex', 'disconnected'),
   ], true);
 
-  assert.equal(phase, 'loading');
+  assert.equal(phase, 'connected');
 }
 
 function main(): void {
   testLoadingPersistsWhileAnotherEnabledProviderIsPending();
   testReconcilePreservesResolvedProvidersAcrossUnrelatedConfigChanges();
-  testLoadingPhaseWinsWhileConnectedProviderExistsButAnotherIsPending();
+  testConnectedPhaseWinsWhileAnotherEnabledProviderIsPending();
   console.log('statusBarLoading.test.ts passed');
 }
 
