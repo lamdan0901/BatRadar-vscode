@@ -23,6 +23,8 @@ export function activate(context: vscode.ExtensionContext) {
     statusBar.updateSingle(state);
   });
 
+  polling.emitDisabledProviderStatuses();
+
   context.subscriptions.push(onConfigChanged((newConfig) => {
     statusBar.setThresholds(newConfig.alertThreshold, newConfig.criticalThreshold);
     polling.setEnabledProviders(newConfig.enabledProviders);

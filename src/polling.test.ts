@@ -135,6 +135,24 @@ async function testDisablingProviderEmitsDisabledStatusAndPreservesCachedUsage()
   assert.deepEqual(statuses, ['connected', 'disabled']);
 }
 
+async function testLateSubscriberCanReplayStartupDisabledStatus(): Promise<void> {
+  const nowRef = { value: 1_000_000 };
+  const polling = new PollingEngine(createDeps(nowRef));
+  const statuses: string[] = [];
+
+  polling.setEnabledProviders(['codex']);
+
+  polling.onProviderStatusChanged((event) => {
+    if (event.provider === 'claude') {
+      statuses.push(event.status);
+    }
+  });
+
+  polling.emitDisabledProviderStatuses();
+
+  assert.deepEqual(statuses, ['disabled']);
+}
+
 async function testNonAuthFailureBecomesError(): Promise<void> {
   const nowRef = { value: 1_000_000 };
   const deps = createDeps(nowRef);
@@ -155,6 +173,7 @@ async function main(): Promise<void> {
   await testExpiredRefreshRetryCanRecover();
   await testExpiredStatusPreservesCachedUsage();
   await testDisablingProviderEmitsDisabledStatusAndPreservesCachedUsage();
+  await testLateSubscriberCanReplayStartupDisabledStatus();
   await testNonAuthFailureBecomesError();
   console.log('polling.test.ts passed');
 }

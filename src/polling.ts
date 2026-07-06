@@ -90,6 +90,14 @@ export class PollingEngine {
     }
   }
 
+  emitDisabledProviderStatuses(): void {
+    for (const provider of ['claude', 'codex'] as const) {
+      if (!this.enabledProviders.includes(provider)) {
+        this._onProviderStatusChanged.fire({ provider, status: 'disabled' });
+      }
+    }
+  }
+
   start(intervalSec: number): void {
     this.stop();
     this.initialTimer = setTimeout(() => {
