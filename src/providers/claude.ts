@@ -1,5 +1,7 @@
 import { ProviderUsageData, UsageWindow, ExtraUsage } from './types';
 
+const CLAUDE_OAUTH_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
+
 interface RawWindow {
   utilization?: number;
   resets_at?: string;
@@ -21,6 +23,12 @@ interface RawClaudeResponse {
   seven_day_opus?: RawWindow;
   extra_usage?: RawExtraUsage;
   _authMethod?: string;
+}
+
+export interface ClaudeRefreshResponse {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
 }
 
 function parseWindow(raw: RawWindow | undefined): UsageWindow | null {
@@ -84,4 +92,30 @@ export async function fetchClaudeUsage(token: string): Promise<RawClaudeResponse
   }
 
   return res.json() as Promise<RawClaudeResponse>;
+}
+
+export async function requestClaudeTokenRefresh(refreshToken: string): Promise<ClaudeRefreshResponse> {
+  const res = await fetch('https://console.anthropic.com/v1/oauth/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: CLAUDE_OAUTH_CLIENT_ID,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!res.ok) {
+    throw new Error(`refresh_failed:${res.status}`);
+  }
+
+  const payload = await res.json() as ClaudeRefreshResponse;
+  if (!payload.access_token) {
+    throw new Error('refresh_failed:no_access_token');
+  }
+
+  return payload;
 }

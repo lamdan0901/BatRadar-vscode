@@ -1,5 +1,7 @@
 import { ProviderUsageData, UsageWindow, ExtraUsage } from './types';
 
+const CODEX_OAUTH_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
+
 interface RawCodexWindow {
   used_percent?: number;
   reset_at?: number;
@@ -19,6 +21,12 @@ interface RawCodexResponse {
   rate_limit?: RawCodexRateLimit;
   credits?: RawCodexCredits;
   plan_type?: string;
+}
+
+export interface CodexRefreshResponse {
+  access_token?: string;
+  id_token?: string;
+  refresh_token?: string;
 }
 
 function parseWindow(w: RawCodexWindow | undefined): UsageWindow | null {
@@ -83,4 +91,31 @@ export async function fetchCodexUsage(token: string, accountId: string): Promise
     throw new Error('token_expired');
   }
   throw new Error(`api_error:${res.status}`);
+}
+
+export async function requestCodexTokenRefresh(refreshToken: string): Promise<CodexRefreshResponse> {
+  const res = await fetch('https://auth.openai.com/oauth/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: CODEX_OAUTH_CLIENT_ID,
+      scope: 'openid profile email',
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!res.ok) {
+    throw new Error(`refresh_failed:${res.status}`);
+  }
+
+  const payload = await res.json() as CodexRefreshResponse;
+  if (!payload.access_token) {
+    throw new Error('refresh_failed:no_access_token');
+  }
+
+  return payload;
 }

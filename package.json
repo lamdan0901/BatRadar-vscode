@@ -92,7 +92,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "package": "vsce package",
-    "test": "npm run compile && node out/webview/content.test.js",
+    "test": "npm run compile && node out/test/run.js",
     "generate-icons": "node scripts/generate-icons.cjs"
   },
   "devDependencies": {

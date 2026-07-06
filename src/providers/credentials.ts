@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { requestClaudeTokenRefresh } from './claude';
+import { requestCodexTokenRefresh } from './codex';
 
 function getAppDataDir(): string {
   if (process.env.APPDATA) return process.env.APPDATA;
@@ -17,6 +19,17 @@ function getAppDataDir(): string {
 
 const BATRADAR_DIR = path.join(getAppDataDir(), 'batradar');
 const APIKEY_PATH = path.join(BATRADAR_DIR, 'apikey.enc');
+const TEMP_WRITE_SUFFIX = '.batradar-tmp';
+
+function atomicWriteJson(filePath: string, value: unknown): void {
+  const tmpPath = `${filePath}${TEMP_WRITE_SUFFIX}`;
+  fs.writeFileSync(tmpPath, JSON.stringify(value, null, 2));
+  fs.renameSync(tmpPath, filePath);
+}
+
+function readJsonFile<T>(filePath: string): T {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+}
 
 export function getClaudeCredPath(): string {
   const dirs = [
@@ -71,9 +84,8 @@ export function readClaudeToken(): string | null {
   const apiKey = readManualApiKey();
   if (apiKey) return apiKey;
   try {
-    const raw = fs.readFileSync(getClaudeCredPath(), 'utf8');
-    const d = JSON.parse(raw);
-    return d?.claudeAiOauth?.accessToken || d?.oauth_token || d?.access_token || null;
+    const d = readJsonFile<Record<string, unknown>>(getClaudeCredPath());
+    return (d as any)?.claudeAiOauth?.accessToken || (d as any)?.oauth_token || (d as any)?.access_token || null;
   } catch {
     return null;
   }
@@ -82,9 +94,8 @@ export function readClaudeToken(): string | null {
 export function readClaudePlan(): string | null {
   if (readManualApiKey()) return 'api-key';
   try {
-    const raw = fs.readFileSync(getClaudeCredPath(), 'utf8');
-    const d = JSON.parse(raw);
-    return d?.claudeAiOauth?.subscriptionType || d?.account_type || null;
+    const d = readJsonFile<Record<string, unknown>>(getClaudeCredPath());
+    return (d as any)?.claudeAiOauth?.subscriptionType || (d as any)?.account_type || null;
   } catch {
     return null;
   }
@@ -93,9 +104,8 @@ export function readClaudePlan(): string | null {
 export function getClaudeAuthMethod(): 'api-key' | 'oauth' | 'none' {
   if (readManualApiKey()) return 'api-key';
   try {
-    const raw = fs.readFileSync(getClaudeCredPath(), 'utf8');
-    const d = JSON.parse(raw);
-    if (d?.claudeAiOauth?.accessToken) return 'oauth';
+    const d = readJsonFile<Record<string, unknown>>(getClaudeCredPath());
+    if ((d as any)?.claudeAiOauth?.accessToken) return 'oauth';
   } catch {}
   return 'none';
 }
@@ -107,10 +117,9 @@ export interface CodexAuth {
 
 export function readCodexAuth(): CodexAuth | null {
   try {
-    const raw = fs.readFileSync(getCodexCredPath(), 'utf8');
-    const d = JSON.parse(raw);
-    const token = d?.tokens?.access_token;
-    const accountId = d?.tokens?.account_id;
+    const d = readJsonFile<Record<string, unknown>>(getCodexCredPath());
+    const token = (d as any)?.tokens?.access_token;
+    const accountId = (d as any)?.tokens?.account_id;
     if (token && accountId) return { token, accountId };
   } catch {}
   return null;
@@ -119,9 +128,8 @@ export function readCodexAuth(): CodexAuth | null {
 export function readCodexPlan(cachedPlanType?: string): string | null {
   if (cachedPlanType) return cachedPlanType;
   try {
-    const raw = fs.readFileSync(getCodexCredPath(), 'utf8');
-    const d = JSON.parse(raw);
-    const idToken = d?.tokens?.id_token;
+    const d = readJsonFile<Record<string, unknown>>(getCodexCredPath());
+    const idToken = (d as any)?.tokens?.id_token;
     if (idToken) {
       const parts = idToken.split('.');
       if (parts.length >= 2) {
@@ -131,4 +139,50 @@ export function readCodexPlan(cachedPlanType?: string): string | null {
     }
   } catch {}
   return null;
+}
+
+export async function refreshClaudeToken(): Promise<string> {
+  const credPath = getClaudeCredPath();
+  const data = readJsonFile<any>(credPath);
+  const refreshToken = data?.claudeAiOauth?.refreshToken;
+  if (!refreshToken) {
+    throw new Error('no_refresh_token');
+  }
+
+  const refreshed = await requestClaudeTokenRefresh(refreshToken);
+  data.claudeAiOauth.accessToken = refreshed.access_token;
+  if (refreshed.refresh_token) {
+    data.claudeAiOauth.refreshToken = refreshed.refresh_token;
+  }
+  if (refreshed.expires_in) {
+    data.claudeAiOauth.expiresAt = Date.now() + refreshed.expires_in * 1000;
+  }
+
+  atomicWriteJson(credPath, data);
+  return data.claudeAiOauth.accessToken;
+}
+
+export async function refreshCodexAuth(): Promise<CodexAuth> {
+  const credPath = getCodexCredPath();
+  const data = readJsonFile<any>(credPath);
+  const refreshToken = data?.tokens?.refresh_token;
+  if (!refreshToken) {
+    throw new Error('no_refresh_token');
+  }
+
+  const refreshed = await requestCodexTokenRefresh(refreshToken);
+  data.tokens.access_token = refreshed.access_token;
+  if (refreshed.id_token) {
+    data.tokens.id_token = refreshed.id_token;
+  }
+  if (refreshed.refresh_token) {
+    data.tokens.refresh_token = refreshed.refresh_token;
+  }
+  data.last_refresh = new Date().toISOString();
+
+  atomicWriteJson(credPath, data);
+  return {
+    token: data.tokens.access_token,
+    accountId: data.tokens.account_id,
+  };
 }
