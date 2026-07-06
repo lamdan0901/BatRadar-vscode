@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ProviderId, ProviderState, ProviderStatus } from './providers/types';
+import { getZeroConnectedPresentation } from './statusBarSummary';
 
 export class StatusBarManager {
   private item: vscode.StatusBarItem;
@@ -45,20 +46,12 @@ export class StatusBarManager {
   private render(): void {
     const states = Array.from(this.providerStates.values());
     const connected = states.filter(s => s.status === 'connected' && s.usage);
-    const anyDisconnected = states.some(s =>
-      ['disconnected', 'expired', 'error'].includes(s.status)
-    );
-
-    if (connected.length === 0 && anyDisconnected) {
-      this.showDisconnected();
-      return;
-    }
 
     if (connected.length === 0) {
       if (this.loading) {
         this.showLoading();
       } else {
-        this.showDisconnected();
+        this.showZeroConnected(states);
       }
       return;
     }
@@ -199,11 +192,16 @@ export class StatusBarManager {
     return `${dur} until ${h12}:${mm} ${ampm}`;
   }
 
-  private showDisconnected(): void {
-    this.item.text = '$(circle-slash) BatRadar';
-    this.item.color = new vscode.ThemeColor('statusBarItem.warningForeground');
+  private showZeroConnected(states: ProviderState[]): void {
+    const presentation = getZeroConnectedPresentation(states);
+    this.item.text = presentation.text;
+    this.item.color = new vscode.ThemeColor(
+      presentation.colorTone === 'error'
+        ? 'statusBarItem.errorForeground'
+        : 'statusBarItem.warningForeground'
+    );
     this.item.backgroundColor = undefined;
-    this.item.tooltip = 'BatRadar — No providers connected';
+    this.item.tooltip = presentation.tooltip;
   }
 
   private showLoading(): void {

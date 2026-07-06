@@ -2,5 +2,6 @@ import '../webview/content.test';
 import '../webview/stateSync.test';
 import '../providers/credentials.test';
 import '../polling.test';
+import '../statusBarSummary.test';
 
 console.log('run.ts passed');
