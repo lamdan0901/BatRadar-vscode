@@ -22,8 +22,27 @@ function testLoadingPersistsWhileAnotherEnabledProviderIsPending(): void {
   assert.equal(tracker.isLoading(), false);
 }
 
+function testReconcilePreservesResolvedProvidersAcrossUnrelatedConfigChanges(): void {
+  const tracker = new StatusBarLoadingTracker();
+  tracker.reset([
+    state('claude', 'error'),
+    state('codex', 'disabled'),
+  ]);
+
+  tracker.markResolved('claude');
+  assert.equal(tracker.isLoading(), false);
+
+  tracker.reconcile([
+    state('claude', 'error'),
+    state('codex', 'disabled'),
+  ]);
+
+  assert.equal(tracker.isLoading(), false);
+}
+
 function main(): void {
   testLoadingPersistsWhileAnotherEnabledProviderIsPending();
+  testReconcilePreservesResolvedProvidersAcrossUnrelatedConfigChanges();
   console.log('statusBarLoading.test.ts passed');
 }
 

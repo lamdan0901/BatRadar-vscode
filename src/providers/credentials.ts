@@ -108,9 +108,13 @@ export function getClaudeAuthMethod(): 'api-key' | 'oauth' | 'none' {
   if (readManualApiKey()) return 'api-key';
   try {
     const d = readJsonFile<Record<string, unknown>>(getClaudeCredPath());
-    if ((d as any)?.claudeAiOauth?.accessToken) return 'oauth';
+    if ((d as any)?.claudeAiOauth?.accessToken || (d as any)?.oauth_token || (d as any)?.access_token) return 'oauth';
   } catch {}
   return 'none';
+}
+
+function getClaudeRefreshToken(data: any): string | null {
+  return data?.claudeAiOauth?.refreshToken || data?.refresh_token || null;
 }
 
 export interface CodexAuth {
@@ -147,22 +151,26 @@ export function readCodexPlan(cachedPlanType?: string): string | null {
 export async function refreshClaudeToken(): Promise<string> {
   const credPath = getClaudeCredPath();
   const data = readJsonFile<any>(credPath);
-  const refreshToken = data?.claudeAiOauth?.refreshToken;
+  const refreshToken = getClaudeRefreshToken(data);
   if (!refreshToken) {
     throw new Error('no_refresh_token');
   }
 
   const refreshed = await requestClaudeTokenRefresh(refreshToken);
-  data.claudeAiOauth.accessToken = refreshed.access_token;
-  if (refreshed.refresh_token) {
-    data.claudeAiOauth.refreshToken = refreshed.refresh_token;
+  const nextRefreshToken = refreshed.refresh_token || refreshToken;
+  if (data?.claudeAiOauth) {
+    data.claudeAiOauth.accessToken = refreshed.access_token;
+    data.claudeAiOauth.refreshToken = nextRefreshToken;
+    if (refreshed.expires_in) {
+      data.claudeAiOauth.expiresAt = Date.now() + refreshed.expires_in * 1000;
+    }
   }
-  if (refreshed.expires_in) {
-    data.claudeAiOauth.expiresAt = Date.now() + refreshed.expires_in * 1000;
-  }
+  if ('oauth_token' in data) data.oauth_token = refreshed.access_token;
+  if ('access_token' in data || !data?.claudeAiOauth) data.access_token = refreshed.access_token;
+  if ('refresh_token' in data || !data?.claudeAiOauth) data.refresh_token = nextRefreshToken;
 
   atomicWriteJson(credPath, data);
-  return data.claudeAiOauth.accessToken;
+  return data?.claudeAiOauth?.accessToken || data.oauth_token || data.access_token;
 }
 
 export async function refreshCodexAuth(): Promise<CodexAuth> {

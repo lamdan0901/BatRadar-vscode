@@ -16,6 +16,9 @@ export function activate(context: vscode.ExtensionContext) {
   const resetLoadingTracker = () => {
     loadingTracker.reset(getAllProviderStates());
   };
+  const reconcileLoadingTracker = () => {
+    loadingTracker.reconcile(getAllProviderStates());
+  };
   const syncStatusBar = (resolvedProvider?: ProviderId) => {
     if (resolvedProvider) {
       loadingTracker.markResolved(resolvedProvider);
@@ -42,7 +45,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(onConfigChanged((newConfig) => {
     statusBar.setThresholds(newConfig.alertThreshold, newConfig.criticalThreshold);
     polling.setEnabledProviders(newConfig.enabledProviders);
-    resetLoadingTracker();
+    reconcileLoadingTracker();
     syncStatusBar();
     polling.restart(newConfig.pollInterval);
   }));

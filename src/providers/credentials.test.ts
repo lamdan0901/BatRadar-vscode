@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { refreshClaudeToken, refreshCodexAuth } from './credentials';
+import { getClaudeAuthMethod, refreshClaudeToken, refreshCodexAuth } from './credentials';
 
 const originalFetch = globalThis.fetch;
 const originalClaudeDir = process.env.CLAUDE_CONFIG_DIR;
@@ -72,6 +72,64 @@ async function testClaudeRefreshFailure(): Promise<void> {
 
   const saved = JSON.parse(fs.readFileSync(credPath, 'utf8'));
   assert.equal(saved.claudeAiOauth.accessToken, 'old-access');
+}
+
+async function testClaudeLegacyTopLevelRefreshSuccess(): Promise<void> {
+  const dir = tempDir('batradar-claude-legacy');
+  process.env.CLAUDE_CONFIG_DIR = dir;
+  const credPath = path.join(dir, '.credentials.json');
+
+  fs.writeFileSync(credPath, JSON.stringify({
+    access_token: 'old-access',
+    refresh_token: 'old-refresh',
+  }, null, 2));
+
+  globalThis.fetch = (async () => jsonResponse({
+    access_token: 'new-access',
+    refresh_token: 'new-refresh',
+    expires_in: 3600,
+  })) as typeof fetch;
+
+  assert.equal(getClaudeAuthMethod(), 'oauth');
+
+  const token = await refreshClaudeToken();
+  const saved = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+
+  assert.equal(token, 'new-access');
+  assert.equal(saved.access_token, 'new-access');
+  assert.equal(saved.refresh_token, 'new-refresh');
+}
+
+async function testClaudeRefreshSyncsNestedAndLegacyOauthFields(): Promise<void> {
+  const dir = tempDir('batradar-claude-dual');
+  process.env.CLAUDE_CONFIG_DIR = dir;
+  const credPath = path.join(dir, '.credentials.json');
+
+  fs.writeFileSync(credPath, JSON.stringify({
+    claudeAiOauth: {
+      accessToken: 'nested-access',
+      refreshToken: 'nested-refresh',
+    },
+    oauth_token: 'legacy-oauth',
+    access_token: 'legacy-access',
+    refresh_token: 'legacy-refresh',
+  }, null, 2));
+
+  globalThis.fetch = (async () => jsonResponse({
+    access_token: 'new-access',
+    refresh_token: 'new-refresh',
+    expires_in: 3600,
+  })) as typeof fetch;
+
+  const token = await refreshClaudeToken();
+  const saved = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+
+  assert.equal(token, 'new-access');
+  assert.equal(saved.claudeAiOauth.accessToken, 'new-access');
+  assert.equal(saved.claudeAiOauth.refreshToken, 'new-refresh');
+  assert.equal(saved.oauth_token, 'new-access');
+  assert.equal(saved.access_token, 'new-access');
+  assert.equal(saved.refresh_token, 'new-refresh');
 }
 
 async function testCodexRefreshSuccess(): Promise<void> {
@@ -152,6 +210,8 @@ async function main(): Promise<void> {
   try {
     await testClaudeRefreshSuccess();
     await testClaudeRefreshFailure();
+    await testClaudeLegacyTopLevelRefreshSuccess();
+    await testClaudeRefreshSyncsNestedAndLegacyOauthFields();
     await testCodexRefreshSuccess();
     await testRefreshPreservesExistingCredentialFileMode();
   } finally {
