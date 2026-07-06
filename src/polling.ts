@@ -108,6 +108,10 @@ export class PollingEngine {
     }
   }
 
+  hasEnabledProviders(): boolean {
+    return this.enabledProviders.length > 0;
+  }
+
   start(intervalSec: number): void {
     this.stop();
     this.initialTimer = setTimeout(() => {

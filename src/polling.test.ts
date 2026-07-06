@@ -190,6 +190,15 @@ async function testLateSubscriberCanReplayDisabledStatusWhenAllProvidersDisabled
   assert.deepEqual(statuses, ['claude:disabled', 'codex:disabled']);
 }
 
+async function testInvalidConfiguredProvidersCountAsNoEnabledProviders(): Promise<void> {
+  const nowRef = { value: 1_000_000 };
+  const polling = new PollingEngine(createDeps(nowRef));
+
+  polling.setEnabledProviders(['bogus']);
+
+  assert.equal(polling.hasEnabledProviders(), false);
+}
+
 async function testNonAuthFailureBecomesError(): Promise<void> {
   const nowRef = { value: 1_000_000 };
   const deps = createDeps(nowRef);
@@ -213,6 +222,7 @@ async function main(): Promise<void> {
   await testReEnablingProviderResetsStatusUntilFreshPoll();
   await testLateSubscriberDoesNotReplayDisabledStatusWhileEnabledProvidersRemain();
   await testLateSubscriberCanReplayDisabledStatusWhenAllProvidersDisabled();
+  await testInvalidConfiguredProvidersCountAsNoEnabledProviders();
   await testNonAuthFailureBecomesError();
   console.log('polling.test.ts passed');
 }

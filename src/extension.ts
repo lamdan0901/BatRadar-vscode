@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
     statusBar.update(getAllProviderStates());
   });
 
-  if (config.enabledProviders.length === 0) {
+  if (!polling.hasEnabledProviders()) {
     statusBar.update(getAllProviderStates());
   }
 
