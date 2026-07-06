@@ -46,8 +46,8 @@ h2 {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
   transition: border-color 0.2s;
 }
 .provider-card.active { border-color: var(--accent-claude); }
@@ -55,7 +55,7 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .provider-name-row {
   display: flex;
@@ -85,11 +85,14 @@ h2 {
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 11px;
   padding: 3px 10px;
   border-radius: 99px;
   font-weight: 600;
+}
+.status-icon {
+  line-height: 1;
 }
 .status-badge.connected    { background: #14532d; color: #4ade80; }
 .status-badge.disconnected { background: #1c1c2e; color: var(--text-dim); }
@@ -99,42 +102,60 @@ h2 {
 .usage-section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
 }
 .usage-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+}
+.usage-row + .usage-row {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 .usage-row-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  margin-bottom: 2px;
 }
 .usage-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
 }
-.usage-right {
+.usage-summary {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+.usage-summary-group {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0;
+}
+.usage-reset-group {
+  color: var(--text-muted);
 }
 .usage-pct {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
 }
-.usage-reset {
-  color: var(--text-dim);
-  font-size: 10px;
+.usage-text {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+}
+.usage-reset-detail {
+  font-weight: 500;
 }
 .progress-bar-wrap {
   background: var(--bg-bar);
   border-radius: 99px;
   height: 8px;
   overflow: hidden;
+  margin-top: 2px;
 }
 .progress-bar-fill {
   height: 100%;
@@ -145,7 +166,7 @@ h2 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 8px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
   margin-top: 4px;
   font-size: 12px;
@@ -159,13 +180,15 @@ h2 {
   font-size: 10px;
   color: var(--text-dim);
   text-align: right;
-  margin-top: 4px;
+  margin-top: 10px;
+  padding-top: 2px;
 }
 .no-data {
   color: var(--text-dim);
   font-size: 11px;
-  padding: 8px 0;
+  padding: 12px 0;
   text-align: center;
+  line-height: 1.5;
 }
 .footer {
   margin-top: 16px;
@@ -232,7 +255,7 @@ function updateProviderCard(state) {
   const badge = card.querySelector('.status-badge');
   if (badge) {
     badge.className = 'status-badge ' + state.status;
-    badge.textContent = statusLabel(state.status);
+    badge.innerHTML = statusBadgeHtml(state.status);
   }
   if (state.status === 'connected' && state.usage) {
     updateProviderUsage(state.id, state.usage);
@@ -250,7 +273,7 @@ function updateProviderStatus(provider, status) {
   const badge = card.querySelector('.status-badge');
   if (badge) {
     badge.className = 'status-badge ' + status;
-    badge.textContent = statusLabel(status);
+    badge.innerHTML = statusBadgeHtml(status);
   }
   if (['disconnected', 'disabled', 'expired', 'error'].includes(status)) {
     card.classList.remove('active');
@@ -287,18 +310,27 @@ function usageRow(label, w) {
   var u     = w.utilization;
   var rem   = 1 - u;
   var color = usageColor(u);
+  var usedPct = Math.round(u * 100);
   var remPct = Math.round(rem * 100);
   var resetText = usageResetText(label, w.reset_at);
+  var warn = u >= 0.95 ? '<span class="usage-text"> ⚠</span>' : '';
   return '<div class="usage-row">'
     + '<div class="usage-row-header">'
     +   '<span class="usage-label">' + label + '</span>'
-    +   '<div class="usage-right">'
-    +     '<span class="usage-pct" style="color:' + color + '">' + remPct + '%' + (u >= 0.95 ? ' ⚠' : '') + '</span>'
-    +     '<span class="usage-reset">resets ' + resetText + '</span>'
-    +   '</div>'
+    + '</div>'
+    + '<div class="usage-summary">'
+    +   '<span class="usage-summary-group">'
+    +     '<span class="usage-pct" style="color:' + color + '">' + usedPct + '%</span><span class="usage-text"> used</span>'
+    +   '</span>'
+    +   '<span class="usage-summary-group">'
+    +     '<span class="usage-pct" style="color:' + color + '">' + remPct + '%</span><span class="usage-text"> remaining</span>' + warn
+    +   '</span>'
+    +   '<span class="usage-summary-group usage-reset-group">'
+    +     '<span class="usage-text">resets </span><span class="usage-text usage-reset-detail">' + resetText + '</span>'
+    +   '</span>'
     + '</div>'
     + '<div class="progress-bar-wrap">'
-    +   '<div class="progress-bar-fill" style="width:' + Math.round(u * 100) + '%;background:' + color + '"></div>'
+    +   '<div class="progress-bar-fill" style="width:' + usedPct + '%;background:' + color + '"></div>'
     + '</div>'
     + '</div>';
 }
@@ -358,9 +390,18 @@ function resetDateTimeLabel(iso) {
   return hh + ':' + mm + ampm + ' on ' + d.getDate() + ' ' + months[d.getMonth()];
 }
 
-function statusLabel(s) {
-  var map = { connected: '● Connected', disconnected: '○ Disconnected', disabled: '⏸ Disabled', expired: '⚠ Expired', error: '✕ Error' };
-  return map[s] || s;
+function statusBadgeHtml(s) {
+  var map = {
+    connected: ['●', 'Connected'],
+    disconnected: ['○', 'Disconnected'],
+    disabled: ['⏸', 'Disabled'],
+    expired: ['⚠', 'Expired'],
+    error: ['✕', 'Error'],
+  };
+  var parts = map[s];
+  if (!parts) return s;
+  return '<span class="status-icon" aria-hidden="true">' + parts[0] + '</span>'
+    + '<span class="status-text">' + parts[1] + '</span>';
 }
 
 function hint(id, status) {
@@ -380,7 +421,7 @@ function buildProviderCard(state: ProviderState): string {
   const color = state.id === 'claude' ? '#D97706' : '#10B981';
   const name = state.id === 'claude' ? 'Claude' : 'Codex';
   const isActive = state.status === 'connected';
-  const statusLabel = getStatusLabel(state.status);
+  const statusBadge = buildStatusBadgeHtml(state.status);
   const planTag = state.usage?.plan_type
     ? `<span class="plan-tag">${escapeHtml(state.usage.plan_type)}</span>`
     : '';
@@ -400,7 +441,7 @@ function buildProviderCard(state: ProviderState): string {
         <span class="provider-name">${name}</span>
         ${planTag}
       </div>
-      <span class="status-badge ${state.status}">${statusLabel}</span>
+      <span class="status-badge ${state.status}">${statusBadge}</span>
     </div>
     <div class="usage-section" id="usage-${state.id}">
       ${usageHtml}
@@ -425,6 +466,25 @@ function buildUsageHtml(data: import('../providers/types').ProviderUsageData): s
   return html || '<div class="no-data">No data</div>';
 }
 
+function buildUsageSummaryHtml(
+  usedPct: number,
+  remPct: number,
+  color: string,
+  resetText: string,
+  showWarn: boolean
+): string {
+  const warn = showWarn ? '<span class="usage-text"> ⚠</span>' : '';
+  return `<span class="usage-summary-group">`
+    + `<span class="usage-pct" style="color:${color}">${usedPct}%</span><span class="usage-text"> used</span>`
+    + `</span>`
+    + `<span class="usage-summary-group">`
+    + `<span class="usage-pct" style="color:${color}">${remPct}%</span><span class="usage-text"> remaining</span>${warn}`
+    + `</span>`
+    + `<span class="usage-summary-group usage-reset-group">`
+    + `<span class="usage-text">resets </span><span class="usage-text usage-reset-detail">${resetText}</span>`
+    + `</span>`;
+}
+
 function buildUsageRow(label: string, w: import('../providers/types').UsageWindow): string {
   const u = w.utilization;
   const rem = 1 - u;
@@ -436,10 +496,9 @@ function buildUsageRow(label: string, w: import('../providers/types').UsageWindo
   return `<div class="usage-row">
     <div class="usage-row-header">
       <span class="usage-label">${label}</span>
-      <div class="usage-right">
-        <span class="usage-pct" style="color:${color}">${remPct}%${u >= 0.95 ? ' ⚠' : ''}</span>
-        <span class="usage-reset">resets ${resetText}</span>
-      </div>
+    </div>
+    <div class="usage-summary">
+      ${buildUsageSummaryHtml(usedPct, remPct, color, resetText, u >= 0.95)}
     </div>
     <div class="progress-bar-wrap">
       <div class="progress-bar-fill" style="width:${usedPct}%;background:${color}"></div>
@@ -497,15 +556,20 @@ function fmtResetDateTime(iso: string | null): string {
   return `${hh}:${mm}${ampm} on ${d.getDate()} ${months[d.getMonth()]}`;
 }
 
-function getStatusLabel(status: string): string {
-  const map: Record<string, string> = {
-    connected: '● Connected',
-    disconnected: '○ Disconnected',
-    disabled: '⏸ Disabled',
-    expired: '⚠ Expired',
-    error: '✕ Error',
+function buildStatusBadgeHtml(status: string): string {
+  const map: Record<string, [string, string]> = {
+    connected: ['●', 'Connected'],
+    disconnected: ['○', 'Disconnected'],
+    disabled: ['⏸', 'Disabled'],
+    expired: ['⚠', 'Expired'],
+    error: ['✕', 'Error'],
   };
-  return map[status] || status;
+  const parts = map[status];
+  if (!parts) {
+    return escapeHtml(status);
+  }
+  return `<span class="status-icon" aria-hidden="true">${parts[0]}</span>`
+    + `<span class="status-text">${parts[1]}</span>`;
 }
 
 function getHint(id: string, status: string): string {
