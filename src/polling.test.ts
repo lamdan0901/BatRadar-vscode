@@ -115,6 +115,26 @@ async function testExpiredStatusPreservesCachedUsage(): Promise<void> {
   assert.equal(state.usage?.plan_type, 'codex');
 }
 
+async function testDisablingProviderEmitsDisabledStatusAndPreservesCachedUsage(): Promise<void> {
+  const nowRef = { value: 1_000_000 };
+  const polling = new PollingEngine(createDeps(nowRef));
+  const statuses: string[] = [];
+
+  polling.onProviderStatusChanged((event) => {
+    if (event.provider === 'claude') {
+      statuses.push(event.status);
+    }
+  });
+
+  await polling.poll();
+  polling.setEnabledProviders(['codex']);
+
+  const state = polling.getProviderState('claude');
+  assert.equal(state.status, 'disabled');
+  assert.equal(state.usage?.plan_type, 'claude');
+  assert.deepEqual(statuses, ['connected', 'disabled']);
+}
+
 async function testNonAuthFailureBecomesError(): Promise<void> {
   const nowRef = { value: 1_000_000 };
   const deps = createDeps(nowRef);
@@ -134,6 +154,7 @@ async function main(): Promise<void> {
   await testRateLimitAddsBackoffWithoutError();
   await testExpiredRefreshRetryCanRecover();
   await testExpiredStatusPreservesCachedUsage();
+  await testDisablingProviderEmitsDisabledStatusAndPreservesCachedUsage();
   await testNonAuthFailureBecomesError();
   console.log('polling.test.ts passed');
 }

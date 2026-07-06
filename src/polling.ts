@@ -73,9 +73,21 @@ export class PollingEngine {
   constructor(private readonly deps: PollingDeps = defaultDeps) {}
 
   setEnabledProviders(providers: string[]): void {
+    const previousEnabledProviders = this.enabledProviders;
     this.enabledProviders = providers.filter(
       (p): p is ProviderId => p === 'claude' || p === 'codex'
     );
+
+    for (const provider of ['claude', 'codex'] as const) {
+      const wasEnabled = previousEnabledProviders.includes(provider);
+      const isEnabled = this.enabledProviders.includes(provider);
+      if (wasEnabled !== isEnabled) {
+        this._onProviderStatusChanged.fire({
+          provider,
+          status: this.getProviderState(provider).status,
+        });
+      }
+    }
   }
 
   start(intervalSec: number): void {
