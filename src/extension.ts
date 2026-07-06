@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getConfig, onConfigChanged } from './config';
 import { PollingEngine, UsageUpdateEvent, ProviderStatusEvent } from './polling';
 import { ProviderId } from './providers/types';
+import { StatusBarLoadingTracker } from './statusBarLoading';
 import { StatusBarManager } from './statusBar';
 import { BatRadarPanel } from './webview/panel';
 
@@ -10,26 +11,39 @@ export function activate(context: vscode.ExtensionContext) {
   const polling = new PollingEngine();
   const statusBar = new StatusBarManager();
   const panel = new BatRadarPanel(context.extensionUri, polling);
+  const loadingTracker = new StatusBarLoadingTracker();
   const getAllProviderStates = () => (['claude', 'codex'] as ProviderId[]).map((id) => polling.getProviderState(id));
+  const resetLoadingTracker = () => {
+    loadingTracker.reset(getAllProviderStates());
+  };
+  const syncStatusBar = (resolvedProvider?: ProviderId) => {
+    if (resolvedProvider) {
+      loadingTracker.markResolved(resolvedProvider);
+    }
+    statusBar.update(getAllProviderStates(), { loading: loadingTracker.isLoading() });
+  };
 
   statusBar.setThresholds(config.alertThreshold, config.criticalThreshold);
   polling.setEnabledProviders(config.enabledProviders);
+  resetLoadingTracker();
 
-  polling.onUsageUpdate((_e: UsageUpdateEvent) => {
-    statusBar.update(getAllProviderStates());
+  polling.onUsageUpdate((e: UsageUpdateEvent) => {
+    syncStatusBar(e.provider);
   });
 
-  polling.onProviderStatusChanged((_e: ProviderStatusEvent) => {
-    statusBar.update(getAllProviderStates());
+  polling.onProviderStatusChanged((e: ProviderStatusEvent) => {
+    syncStatusBar(e.provider);
   });
 
   if (!polling.hasEnabledProviders()) {
-    statusBar.update(getAllProviderStates());
+    syncStatusBar();
   }
 
   context.subscriptions.push(onConfigChanged((newConfig) => {
     statusBar.setThresholds(newConfig.alertThreshold, newConfig.criticalThreshold);
     polling.setEnabledProviders(newConfig.enabledProviders);
+    resetLoadingTracker();
+    syncStatusBar();
     polling.restart(newConfig.pollInterval);
   }));
 

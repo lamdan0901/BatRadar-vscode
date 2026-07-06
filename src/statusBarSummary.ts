@@ -6,6 +6,10 @@ export interface ZeroConnectedPresentation {
   colorTone: 'warning' | 'error';
 }
 
+export function shouldShowStatusBarUsageDetails(status: ProviderStatus): boolean {
+  return status === 'connected';
+}
+
 const STATUS_PRIORITY: Record<ProviderStatus, number> = {
   connected: 0,
   disabled: 1,

@@ -110,11 +110,50 @@ async function testCodexRefreshSuccess(): Promise<void> {
   assert.equal(fs.existsSync(`${credPath}.batradar-tmp`), false);
 }
 
+async function testRefreshPreservesExistingCredentialFileMode(): Promise<void> {
+  const dir = tempDir('batradar-claude-mode');
+  process.env.CLAUDE_CONFIG_DIR = dir;
+  const credPath = path.join(dir, '.credentials.json');
+
+  fs.writeFileSync(credPath, JSON.stringify({
+    claudeAiOauth: {
+      accessToken: 'old-access',
+      refreshToken: 'old-refresh',
+    },
+  }, null, 2));
+
+  const existingMode = fs.statSync(credPath).mode & 0o777;
+  let tmpWriteMode: number | undefined;
+  const fsMutable = require('fs') as typeof fs & { writeFileSync: typeof fs.writeFileSync };
+  const originalWriteFileSync = fsMutable.writeFileSync;
+
+  fsMutable.writeFileSync = ((filePath: fs.PathOrFileDescriptor, data: string | NodeJS.ArrayBufferView, options?: fs.WriteFileOptions) => {
+    if (String(filePath).endsWith('.batradar-tmp') && options && typeof options === 'object' && 'mode' in options) {
+      tmpWriteMode = options.mode as number | undefined;
+    }
+    return originalWriteFileSync(filePath, data as never, options as never);
+  }) as typeof fs.writeFileSync;
+
+  try {
+    globalThis.fetch = (async () => jsonResponse({
+      access_token: 'new-access',
+      refresh_token: 'new-refresh',
+    })) as typeof fetch;
+
+    await refreshClaudeToken();
+  } finally {
+    fsMutable.writeFileSync = originalWriteFileSync;
+  }
+
+  assert.equal(tmpWriteMode, existingMode);
+}
+
 async function main(): Promise<void> {
   try {
     await testClaudeRefreshSuccess();
     await testClaudeRefreshFailure();
     await testCodexRefreshSuccess();
+    await testRefreshPreservesExistingCredentialFileMode();
   } finally {
     globalThis.fetch = originalFetch;
     process.env.CLAUDE_CONFIG_DIR = originalClaudeDir;

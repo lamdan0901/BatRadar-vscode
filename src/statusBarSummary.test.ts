@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { ProviderState } from './providers/types';
-import { getZeroConnectedPresentation } from './statusBarSummary';
+import { getZeroConnectedPresentation, shouldShowStatusBarUsageDetails } from './statusBarSummary';
 
 function state(id: ProviderState['id'], status: ProviderState['status']): ProviderState {
   return { id, status, usage: null };
@@ -28,9 +28,17 @@ function testMixedNonConnectedStatesStayExplicit(): void {
   assert.equal(presentation.colorTone, 'error');
 }
 
+function testNonConnectedStatusesHideUsageDetails(): void {
+  assert.equal(shouldShowStatusBarUsageDetails('connected'), true);
+  assert.equal(shouldShowStatusBarUsageDetails('disabled'), false);
+  assert.equal(shouldShowStatusBarUsageDetails('expired'), false);
+  assert.equal(shouldShowStatusBarUsageDetails('error'), false);
+}
+
 function main(): void {
   testAllDisabledStatesStayExplicit();
   testMixedNonConnectedStatesStayExplicit();
+  testNonConnectedStatusesHideUsageDetails();
   console.log('statusBarSummary.test.ts passed');
 }
 

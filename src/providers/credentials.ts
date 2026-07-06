@@ -23,7 +23,10 @@ const TEMP_WRITE_SUFFIX = '.batradar-tmp';
 
 function atomicWriteJson(filePath: string, value: unknown): void {
   const tmpPath = `${filePath}${TEMP_WRITE_SUFFIX}`;
-  fs.writeFileSync(tmpPath, JSON.stringify(value, null, 2));
+  const existingMode = fs.existsSync(filePath)
+    ? fs.statSync(filePath).mode & 0o777
+    : undefined;
+  fs.writeFileSync(tmpPath, JSON.stringify(value, null, 2), existingMode != null ? { mode: existingMode } : undefined);
   fs.renameSync(tmpPath, filePath);
 }
 

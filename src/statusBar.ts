@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ProviderId, ProviderState, ProviderStatus } from './providers/types';
-import { getZeroConnectedPresentation } from './statusBarSummary';
+import { getZeroConnectedPresentation, shouldShowStatusBarUsageDetails } from './statusBarSummary';
 
 export class StatusBarManager {
   private item: vscode.StatusBarItem;
@@ -24,8 +24,8 @@ export class StatusBarManager {
     this.criticalThreshold = critical;
   }
 
-  update(providers: ProviderState[]): void {
-    this.loading = false;
+  update(providers: ProviderState[], options?: { loading?: boolean }): void {
+    this.loading = options?.loading ?? false;
     for (const p of providers) {
       this.providerStates.set(p.id, p);
     }
@@ -107,7 +107,7 @@ export class StatusBarManager {
 
       md.appendMarkdown(`**${name}** — ${statusLabel}\n\n`);
 
-      if (s.usage) {
+      if (s.usage && shouldShowStatusBarUsageDetails(s.status)) {
         const sessionUsed = s.usage.session?.utilization ?? 0;
         const weeklyUsed = s.usage.weekly?.utilization ?? 0;
         const sessionRem = Math.round((1 - sessionUsed) * 100);
@@ -144,7 +144,7 @@ export class StatusBarManager {
           md.appendMarkdown(`Plan: ${s.usage.plan_type}\n\n`);
         }
       } else {
-        md.appendMarkdown(`*No usage data available*\n\n`);
+        md.appendMarkdown(`*No live usage data available*\n\n`);
       }
     }
 
