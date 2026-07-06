@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getConfig, onConfigChanged } from './config';
 import { PollingEngine, UsageUpdateEvent, ProviderStatusEvent } from './polling';
+import { ProviderId } from './providers/types';
 import { StatusBarManager } from './statusBar';
 import { BatRadarPanel } from './webview/panel';
 
@@ -9,21 +10,22 @@ export function activate(context: vscode.ExtensionContext) {
   const polling = new PollingEngine();
   const statusBar = new StatusBarManager();
   const panel = new BatRadarPanel(context.extensionUri, polling);
+  const getAllProviderStates = () => (['claude', 'codex'] as ProviderId[]).map((id) => polling.getProviderState(id));
 
   statusBar.setThresholds(config.alertThreshold, config.criticalThreshold);
   polling.setEnabledProviders(config.enabledProviders);
 
-  polling.onUsageUpdate((e: UsageUpdateEvent) => {
-    const state = polling.getProviderState(e.provider);
-    statusBar.updateSingle(state);
+  polling.onUsageUpdate((_e: UsageUpdateEvent) => {
+    statusBar.update(getAllProviderStates());
   });
 
-  polling.onProviderStatusChanged((e: ProviderStatusEvent) => {
-    const state = polling.getProviderState(e.provider);
-    statusBar.updateSingle(state);
+  polling.onProviderStatusChanged((_e: ProviderStatusEvent) => {
+    statusBar.update(getAllProviderStates());
   });
 
-  polling.emitDisabledProviderStatuses();
+  if (config.enabledProviders.length === 0) {
+    statusBar.update(getAllProviderStates());
+  }
 
   context.subscriptions.push(onConfigChanged((newConfig) => {
     statusBar.setThresholds(newConfig.alertThreshold, newConfig.criticalThreshold);

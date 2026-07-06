@@ -82,6 +82,12 @@ export class PollingEngine {
       const wasEnabled = previousEnabledProviders.includes(provider);
       const isEnabled = this.enabledProviders.includes(provider);
       if (wasEnabled !== isEnabled) {
+        if (isEnabled) {
+          const st = this.providerState[provider];
+          st.status = 'disconnected';
+          st.lastPollAt = 0;
+        }
+
         this._onProviderStatusChanged.fire({
           provider,
           status: this.getProviderState(provider).status,
