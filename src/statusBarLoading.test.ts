@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { ProviderState } from './providers/types';
 import { StatusBarLoadingTracker } from './statusBarLoading';
+import { getStatusBarPhase } from './statusBarSummary';
 
 function state(id: ProviderState['id'], status: ProviderState['status']): ProviderState {
   return { id, status, usage: null };
@@ -40,9 +41,19 @@ function testReconcilePreservesResolvedProvidersAcrossUnrelatedConfigChanges(): 
   assert.equal(tracker.isLoading(), false);
 }
 
+function testLoadingPhaseWinsWhileConnectedProviderExistsButAnotherIsPending(): void {
+  const phase = getStatusBarPhase([
+    state('claude', 'connected'),
+    state('codex', 'disconnected'),
+  ], true);
+
+  assert.equal(phase, 'loading');
+}
+
 function main(): void {
   testLoadingPersistsWhileAnotherEnabledProviderIsPending();
   testReconcilePreservesResolvedProvidersAcrossUnrelatedConfigChanges();
+  testLoadingPhaseWinsWhileConnectedProviderExistsButAnotherIsPending();
   console.log('statusBarLoading.test.ts passed');
 }
 

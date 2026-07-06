@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ProviderId, ProviderState, ProviderStatus } from './providers/types';
-import { getZeroConnectedPresentation, shouldShowStatusBarUsageDetails } from './statusBarSummary';
+import { getStatusBarPhase, getZeroConnectedPresentation, shouldShowStatusBarUsageDetails } from './statusBarSummary';
 
 export class StatusBarManager {
   private item: vscode.StatusBarItem;
@@ -45,14 +45,17 @@ export class StatusBarManager {
 
   private render(): void {
     const states = Array.from(this.providerStates.values());
+    const phase = getStatusBarPhase(states, this.loading);
+
+    if (phase === 'loading') {
+      this.showLoading();
+      return;
+    }
+
     const connected = states.filter(s => s.status === 'connected' && s.usage);
 
-    if (connected.length === 0) {
-      if (this.loading) {
-        this.showLoading();
-      } else {
-        this.showZeroConnected(states);
-      }
+    if (phase === 'zero-connected') {
+      this.showZeroConnected(states);
       return;
     }
 

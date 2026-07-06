@@ -1,5 +1,7 @@
 import { ProviderState, ProviderStatus } from './providers/types';
 
+export type StatusBarPhase = 'loading' | 'zero-connected' | 'connected';
+
 export interface ZeroConnectedPresentation {
   text: string;
   tooltip: string;
@@ -8,6 +10,15 @@ export interface ZeroConnectedPresentation {
 
 export function shouldShowStatusBarUsageDetails(status: ProviderStatus): boolean {
   return status === 'connected';
+}
+
+export function getStatusBarPhase(states: ProviderState[], loading: boolean): StatusBarPhase {
+  if (loading) {
+    return 'loading';
+  }
+
+  const connected = states.filter((state) => state.status === 'connected' && state.usage);
+  return connected.length === 0 ? 'zero-connected' : 'connected';
 }
 
 const STATUS_PRIORITY: Record<ProviderStatus, number> = {
