@@ -65,8 +65,8 @@ function testConnectedProvidersKeepIndependentWarningTones(): void {
   ], 0.8, 0.95);
 
   assert.deepEqual(presentations, [
-    { id: 'claude', text: '$(batradar-claude)90%/85%', tone: 'normal' },
-    { id: 'codex', text: '$(batradar-codex)18%/70%', tone: 'warning' },
+    { id: 'claude', text: '$(batradar-claude) 90%/85%', tone: 'normal' },
+    { id: 'codex', text: '$(batradar-codex) 18%/70%', tone: 'warning' },
   ]);
 }
 
@@ -77,8 +77,8 @@ function testConnectedProvidersKeepIndependentErrorTones(): void {
   ], 0.8, 0.95);
 
   assert.deepEqual(presentations, [
-    { id: 'claude', text: '$(batradar-claude)4%/60%', tone: 'error' },
-    { id: 'codex', text: '$(batradar-codex)85%/70%', tone: 'normal' },
+    { id: 'claude', text: '$(batradar-claude) 4%/60%', tone: 'error' },
+    { id: 'codex', text: '$(batradar-codex) 85%/70%', tone: 'normal' },
   ]);
 }
 

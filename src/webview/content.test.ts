@@ -32,10 +32,12 @@ const states: ProviderState[] = [
 
 const html = getWebviewContent(states);
 
-assert.match(html, /resets 09:20AM on 25 Jun/);
+assert.match(html, /42%<\/span><span class="usage-text"> used<\/span>/);
+assert.match(html, /58%<\/span><span class="usage-text"> remaining<\/span>/);
+assert.match(html, /usage-text">resets <\/span><span class="usage-text usage-reset-detail">09:20AM on 25 Jun<\/span>/);
 assert.doesNotMatch(html, /resets in /);
 assert.match(html, /label\.indexOf\('Weekly'\) === 0/);
 assert.match(html, /Token expired — re-authenticate/);
-assert.match(html, /⚠ Expired/);
+assert.match(html, /status-icon" aria-hidden="true">⚠<\/span><span class="status-text">Expired<\/span>/);
 
 console.log('content.test.ts passed');

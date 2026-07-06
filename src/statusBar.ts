@@ -97,17 +97,21 @@ export class StatusBarManager {
 
     this.summaryItem.hide();
 
+    const orderedStates = PROVIDER_ORDER
+      .map((id) => this.providerStates.get(id))
+      .filter((state): state is ProviderState => state !== undefined);
+    const tooltip = this.buildTooltip(orderedStates);
+
     for (const presentation of presentations) {
       const item = this.providerItems.get(presentation.id);
       if (!item) {
         continue;
       }
 
-      const providerState = this.providerStates.get(presentation.id);
       item.text = presentation.text;
       item.color = this.getToneColor(presentation.tone);
       item.backgroundColor = this.getToneBackground(presentation.tone);
-      item.tooltip = this.buildTooltip(providerState ? [providerState] : states);
+      item.tooltip = tooltip;
       item.show();
     }
 

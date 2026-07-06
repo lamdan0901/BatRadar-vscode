@@ -66,7 +66,7 @@ export function getConnectedStatusBarPresentations(
 
       return {
         id: state.id,
-        text: `$(${getProviderIconId(state.id)})${sessionRemaining}%/${weeklyRemaining}%`,
+        text: `$(${getProviderIconId(state.id)}) ${sessionRemaining}%/${weeklyRemaining}%`,
         tone: getUsageTone(highestUtilization, alertThreshold, criticalThreshold),
       };
     });
