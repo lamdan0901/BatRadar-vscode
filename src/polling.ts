@@ -91,6 +91,10 @@ export class PollingEngine {
   }
 
   emitDisabledProviderStatuses(): void {
+    if (this.enabledProviders.length > 0) {
+      return;
+    }
+
     for (const provider of ['claude', 'codex'] as const) {
       if (!this.enabledProviders.includes(provider)) {
         this._onProviderStatusChanged.fire({ provider, status: 'disabled' });
